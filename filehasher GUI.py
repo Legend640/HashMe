@@ -4,12 +4,11 @@ from PyQt5.QtWidgets import QDialog, QApplication, QFileDialog
 import ctypes
 
 ####FILE HASHING PROGRAM
+#
+#
+#
 
-
-####Select Options (HASH FUNCTION / OUTPUT FILE / Directory)
-
-
-####Hash Functions
+####Functions
 
 def hasher(file, alg):
     md5Hash = hashlib.md5()
@@ -56,6 +55,8 @@ def runHasher():
         targetName = call.name.text()
     if call.md5_box.isChecked():
         alg = 'md5'
+    elif call.sha1_box.isChecked():
+        alg = 'sha1'
     if call.text_box.isChecked():
         exportMode = '1'
     elif call.csv_box.isChecked():
@@ -63,60 +64,74 @@ def runHasher():
     elif call.displayonly_box.isChecked():
         exportMode = '3'
     if validateTarget(targetName, runType):
-        fileWalk(targetName, exportMode, alg)
-    elif validateTarget(targetName) == False:
-        call.display.setText('Invalide Target')
-           
+        try:
+            fileWalk(targetName, exportMode, alg, runType)
+        except:
+            call.display.setText(f'Unable to walk directory: {targetName}')
+    elif validateTarget(targetName, runType) == False:
+        call.display.setText('Invalid Target')
+               
 
-def fileWalk(targetName, exportMode, alg):
+def fileWalk(targetName, exportMode, alg, runType):
     if exportMode == '1':
         fileExt = '.txt'
     elif exportMode == '2':
         fileExt = '.csv'
     if exportMode == '3':
         call.display.setText('Running Hasher')
-        for (r,d,f) in os.walk(targetName):
-            for x in f:
-                filePath = os.path.join(r, x)
-                hashValue = hasher(filePath, alg)
-                call.display.append(f'{filePath}:  {hashValue}')  
+        if runType == 'directory':
+            for (r,d,f) in os.walk(targetName):
+                for x in f:
+                    filePath = os.path.join(r, x)
+                    hashValue = hasher(filePath, alg)
+                    call.display.append(f'{filePath}:  {hashValue}')  
+        elif runType == 'file':
+            print(f"file hashing, {targetName}, {alg}")
+            hashValue = hasher(targetName, alg)
+            call.display.append(f'{targetName}:  {hashValue}')
     else:    
         with open(f'{userProfile}//Desktop/HashList{fileExt}', 'w') as F:
             call.display.setText('Running Hasher')
-            for (r,d,f) in os.walk(targetName):
+            if runType == 'directory':
+                for (r,d,f) in os.walk(targetName):
+                    if exportMode == '1':
+                        for x in f:
+                            filePath = os.path.join(r, x)
+                            hashValue = hasher(filePath, alg)
+                            call.display.append(f'{filePath}:  {hashValue}\n')
+                            print(f'{hashValue}', file = F)
+                    elif exportMode == '2':
+                        for x in f:
+                            filePath = os.path.join(r, x)
+                            hashValue = hasher(filePath, alg)
+                            call.display.append(f'{filePath}:  {hashValue}')
+                            print(f'{filePath}, {hashValue}', file = F)
+            elif runType == 'file':
                 if exportMode == '1':
-                    for x in f:
-                        filePath = os.path.join(r, x)
-                        hashValue = hasher(filePath, alg)
-                        call.display.append(f'{filePath}:  {hashValue}\n')
-                        print(f'{hashValue}', file = F)
+                    hashValue = hasher(filePath, alg)
+                    call.display.append(f'{filePath}:  {hashValue}\n')
+                    print(f'{hashValue}', file = F)
                 elif exportMode == '2':
-                    for x in f:
-                        filePath = os.path.join(r, x)
-                        hashValue = hasher(filePath, alg)
-                        call.display.append(f'{filePath}:  {hashValue}')
-                        print(f'{filePath}, {hashValue}', file = F)
-                else:
-                    print('Error Starting Hash Process')
-                
+                    hashValue = hasher(filePath, alg)
+                    call.display.append(f'{filePath}:  {hashValue}')
+                    print(f'{filePath}, {hashValue}', file = F)
+
 def fileBrowser():
     if call.directory_button.isChecked() == True:
         targetName = QtWidgets.QFileDialog.getExistingDirectory(None,"Open Directory", userProfile)
         call.name.setText(targetName)
     elif call.file_button.isChecked() == True:
         targetName = QtWidgets.QFileDialog.getOpenFileName(None,"Open File", userProfile)
-        call.name.setText(targetName)
+        call.name.setText(targetName[0])
 
 
-####GUI Program
+####Main 
 ctypes.windll.shcore.SetProcessDpiAwareness(0)
 app = QtWidgets.QApplication([])
 call = uic.loadUi('gui.ui')
 call.show()
 userProfile = os.environ['USERPROFILE']
-
 call.hash_button.clicked.connect(runHasher)
 call.browse.clicked.connect(fileBrowser)
-
 app.exec()
 
