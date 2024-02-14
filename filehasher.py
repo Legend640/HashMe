@@ -1,15 +1,26 @@
-import os, hashlib
+import os, hashlib, time, logging
+"""
+HashMe Simple File Hasher
 
+Provides hash values of a file or directory of files using MD5, SHA1, or SHA256.
+Option to export plain hash list or CSV file of hashes and file names.
+"""
+#Imports
+import os, hashlib, time, logging
 
-####FILE HASHING PROGRAM
+#Function to validate if the target file or directory is valid.
+#Takes the target name and returns the type (directory or file) or False if invalide
+def validateTarget(target):
+    if os.path.isdir(target) == True:
+        return('directory')
+    elif os.path.isfile(target) == True:
+        return('file')
+    else:
+        return False
 
-
-####Select Options (HASH FUNCTION / OUTPUT FILE / Directory)
-
-
-####Hash Functions
-
-def hashFile(file, alg):
+#Function to hash the individual file.  Takes two arguments: the file name 
+#and choice of hashing algorithm.
+def hasher(file, alg):
     md5Hash = hashlib.md5()
     sha1Hash = hashlib.sha1()
     sha256Hash = hashlib.sha256()
@@ -26,78 +37,96 @@ def hashFile(file, alg):
                 sha256Hash.update(data)
                 return sha256Hash.hexdigest()
             else:
-                print('Invalid Hashing Algorithm')
+                print(f'Error: Invalid Hashing Algorithm when Processing {file}')
     except:
-        print('Error Hashing File')
+        print(f'Error Hashing File: {file}')
     
-def validateTarget(target):
-    if os.path.isdir(target) == True:
-        return True
-    else:
-        return False
-
-print("HashMe version 1.0")
-print("================")
-
-while True:
-    targetDirectory = input('Enter Directory Containing Files to Hash:'  )
-    if validateTarget(targetDirectory) == True:
-        break
-    else:
-        print('Invalid Directory')
-        continue
-
-while True:   
-    hashAlg = input('What hash would you like: MD5, SHA1, or SHA256?  ')
-    if hashAlg.lower() == 'md5':
-        break
-    elif hashAlg.lower() == 'sha1':
-        break
-    elif hashAlg.lower() == 'sha256':
-        break
-    else:
-        print('Invalid Entry')
-        continue
-
-while True:
-    exportMode = input('Enter (1) for text file with hashes, (2) for CSV with filename and hashes:  ')
-    if exportMode == '1' or exportMode == '2':
-        break
-    else:
-        print('Invalid Entry')
-        continue
-
-exportFile = input('Enter Filename for Export:  ')
-if exportFile == '':
-    exportFile = 'Hash List'
-
-userProfile = os.environ['USERPROFILE']
-
-try:
-    if exportMode == '1':
+#Function prepare files for hashing, calls the hasher() function and outputs results
+def startHasher(targetName, exportMode, alg, runType):
+    userProfile = os.environ['USERPROFILE']
+    start_time = time.time()
+    file_count = 0
+    byte_count = 0
+    if exportMode == 1:
         fileExt = '.txt'
-    elif exportMode == '2':
+    elif exportMode == 2:
         fileExt = '.csv'
-    with open(f'{userProfile}//Desktop/{exportFile}{fileExt}', 'w') as F:
-        for (r,d,f) in os.walk(targetDirectory):
-            if exportMode == '1':
-                for x in f:
-                    filePath = os.path.join(r, x)
-                    hashValue = hashFile(filePath, hashAlg)
-                    print(f'{filePath}:  {hashValue}')
-                    print(f'{hashValue}', file = F)
-            elif exportMode == '2':
-                for x in f:
-                    filePath = os.path.join(r, x)
-                    hashValue = hashFile(filePath, hashAlg)
-                    print(f'{filePath}:  {hashValue}')
-                    print(f'{filePath}, {hashValue}', file = F)
-            else:
-                print('Error Starting Hash Process')
-                
-except:
-    print('Error Exporting File')     
-else:
-    print('Export File Complete')
-        
+    if runType == 'file':
+            hashValue = hasher(targetName, alg)
+            file_count += 1
+            file_size = os.stat(targetName)[6]
+            byte_count += file_size
+            print('=' * 15)
+            print('+++File Hashes+++')
+            print(f'{targetName}:  {hashValue}')
+            if exportMode == 1 or exportMode == 2:
+                with open(f'{userProfile}/Desktop/HashList{fileExt}', 'w') as output_file:
+                    print(f'{hashValue}', file = output_file)
+            print('=' * 15) 
+    elif runType == 'directory':
+        print('=' * 15)
+        print('+++File Hashes+++')
+        for (r,d,f) in os.walk(targetName):
+            for x in f:
+                filePath = os.path.join(r, x)
+                hashValue = hasher(filePath, alg)
+                file_count += 1
+                file_size = os.stat(filePath)[6]
+                byte_count += file_size                            
+                print(f'{filePath}:  {hashValue}\n')
+                if exportMode > 0 or exportMode < 3:
+                    with open(f'{userProfile}/Desktop/HashList{fileExt}', 'w') as output_file:
+                        if exportMode == 1:
+                            print(f'{hashValue}', file = output_file)
+                        elif exportMode == 2:
+                            print(f'{filePath}, {hashValue}', file = output_file)
+        print('=' * 15) 
+    end_time = time.time()
+    print('Hashing Complete')
+    print(f'Total Files Hashed: {file_count}')
+    print(f'Total Bytes Hashed: {byte_count}')
+    print(f'Total Time: {end_time - start_time}')
+    print('=' * 15)
+    print('')
 
+
+
+#Main program function
+def main():
+    print('')
+    print("=" * 40)
+    print(f"HashMe-Simple File Hashing version {version}")
+    print("=" * 40)
+    while True:
+        targetName = input("Enter the single file or directory of files to hash:  ")
+        runType =validateTarget(targetName)
+        if runType != False:
+            break
+        else:
+            print("Target isn't valid, try again")
+            continue        
+    while True:
+        alg = str(input("Enter md5, sha1, or sha256 as the hashing algorithm:  ")).lower()
+        if alg == 'md5' or alg == 'sha1' or alg == 'sha256':
+            break
+        else:
+            print ("Unrecognized hashing algorithm, try again")
+            continue
+    while True:
+        exportMode = int(input("Enter (1) for text file, (2) for csv file, or (3) for display only:  "))
+        if exportMode > 0 or exportMode <3:
+            break
+        else:
+            print("Invalid option, try again")
+            continue
+    print(runType, targetName, alg, exportMode)
+    try:
+        startHasher(targetName, exportMode, alg, runType)
+    except:
+        print('Unable to start hashing')
+    
+
+#Main Program
+if __name__ == '__main__':
+    version = .05
+    main()
