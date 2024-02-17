@@ -68,8 +68,8 @@ def startHasher(targetName, exportMode, alg, runType):
         print('+++File Hashes+++')
         if exportMode == 1 or exportMode == 2:
             with open(f'{userProfile}/Desktop/HashList{fileExt}', 'w') as output_file:
+                pool = ThreadPool(4)
                 for (r,d,f) in os.walk(targetName):
-                    pool = ThreadPool(4)
                     for x in f:
                         filePath = os.path.join(r, x)
                         hashValue = pool.apply_async(hasher, ([filePath, alg])).get()
@@ -82,11 +82,11 @@ def startHasher(targetName, exportMode, alg, runType):
                                     print(f'{hashValue}', file = output_file)
                                 elif exportMode == 2:
                                     print(f'{filePath}, {hashValue}', file = output_file)
-                pool.close()
-                pool.join()
+            pool.close()
+            pool.join()
         elif exportMode == 3:
+            pool = ThreadPool(4)
             for (r,d,f) in os.walk(targetName):
-                pool = ThreadPool(4)
                 for x in f:
                     filePath = os.path.join(r, x)
                     hashValue = pool.apply_async(hasher, ([filePath, alg])).get()
@@ -94,8 +94,8 @@ def startHasher(targetName, exportMode, alg, runType):
                     file_size = os.stat(filePath)[6]
                     byte_count += file_size                            
                     print(f'{filePath}:  {hashValue}')
-                pool.close()
-                pool.join()
+            pool.close()
+            pool.join()
         print('=' * 15) 
     end_time = time.time()
     print('Hashing Complete')
