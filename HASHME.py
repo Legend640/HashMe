@@ -13,10 +13,6 @@ import sys
 #Function to validate if the target file or directory is valid.
 #Takes the target name and returns the type (directory or file) or False if invalid
 def validateTarget(target):
-    # if os.path.isdir(target) == True:
-    #     return('directory')
-    # elif os.path.isfile(target) == True:
-    #     return('file')
     path = Path(target)
     if target == '':
         return False
@@ -28,7 +24,7 @@ def validateTarget(target):
         return False
 
 #Function to hash the individual file.  Takes two arguments: the file name 
-#and choice of hashing algorithm.
+#and choice of hashing algorithm. Returns 0 if no data or 1 if can't hash.
 def hasher(file, alg):
     md5Hash = hashlib.md5()
     sha1Hash = hashlib.sha1()
@@ -47,8 +43,10 @@ def hasher(file, alg):
                 return sha256Hash.hexdigest()
             else:
                 print(f'Error: Invalid Hashing Algorithm when Processing {file}')
+                return 0
     except:
         print(f'Error Hashing File: {file}')
+        return 1
     
 #Function prepare files for hashing, calls the hasher() function and outputs results
 def startHasher(targetName, exportMode, alg, runType):
@@ -56,41 +54,63 @@ def startHasher(targetName, exportMode, alg, runType):
     start_time = time.time()
     file_count = 0
     byte_count = 0
+    error_count = 0
+    zero_count = 0
     if exportMode == 1:
         fileExt = '.txt'
     elif exportMode == 2:
         fileExt = '.csv'
     if runType == 'file':
-            hashValue = hasher(targetName, alg)
-            file_count += 1
             file_size = os.stat(targetName)[6]
-            byte_count += file_size
-            print('=' * 15)
+            print('=' * 17)
             print('+++File Hashes+++')
-            print(f'{targetName}:  {hashValue}')
-            if exportMode == 1 or exportMode == 2:
-                with open(f'{userProfile}/Desktop/HashList{fileExt}', 'w') as output_file:
-                    print(f'{hashValue}', file = output_file)
-            print('=' * 15) 
+            print('=' * 17)
+            if file_size != 0:
+                hashValue = hasher(targetName, alg)
+                if hashValue != 0 or hashValue != 1:
+                    hashValue = hashValue
+                    file_count += 1
+                    byte_count += file_size
+                    print(f'{targetName}:  {hashValue}')
+                    if exportMode == 1 or exportMode == 2:
+                        with open(f'{userProfile}/Desktop/HashList{fileExt}', 'w') as output_file:
+                            if exportMode == 1:
+                                print(f'{hashValue}', file = output_file)
+                            elif exportMode == 2:
+                                print(f'{targetName}, {hashValue}', file = output_file)      
+                else:
+                    error_count += 1
+            else:
+                print(f'{targetName} contains no data and was not hashed')
+                zero_count += 1
     elif runType == 'directory':
-        print('=' * 15)
+        print('=' * 17)
         print('+++File Hashes+++')
+        print('=' * 17)
         if exportMode == 1 or exportMode == 2:
             with open(f'{userProfile}/Desktop/HashList{fileExt}', 'w') as output_file:
                 pool = ThreadPool(4)
                 for (r,d,f) in os.walk(targetName):
                     for x in f:
                         filePath = os.path.join(r, x)
-                        hashValue = pool.apply_async(hasher, ([filePath, alg])).get()
-                        file_count += 1
                         file_size = os.stat(filePath)[6]
-                        byte_count += file_size                            
-                        print(f'{filePath}:  {hashValue}')
-                        if exportMode == 1 or exportMode == 2:
-                                if exportMode == 1:
-                                    print(f'{hashValue}', file = output_file)
-                                elif exportMode == 2:
-                                    print(f'{filePath}, {hashValue}', file = output_file)
+                        if file_size != 0:
+                            hashValue = pool.apply_async(hasher, ([filePath, alg])).get()
+                            if hashValue != 0 or hashValue != 1:
+                                hashValue = hashValue
+                                file_count += 1
+                                byte_count += file_size                            
+                                print(f'{filePath}:  {hashValue}')
+                                if exportMode == 1 or exportMode == 2:
+                                    if exportMode == 1:
+                                        print(f'{hashValue}', file = output_file)
+                                    elif exportMode == 2:
+                                        print(f'{filePath}, {hashValue}', file = output_file)
+                            else:
+                                error_count += 1
+                        else:
+                            print(f'{targetName} contains no data and was not hashed')
+                            zero_count += 1
             pool.close()
             pool.join()
         elif exportMode == 3:
@@ -98,29 +118,39 @@ def startHasher(targetName, exportMode, alg, runType):
             for (r,d,f) in os.walk(targetName):
                 for x in f:
                     filePath = os.path.join(r,x)
-                    hashValue = pool.apply_async(hasher, ([filePath, alg])).get()
-                    file_count += 1
                     file_size = os.stat(filePath)[6]
-                    byte_count += file_size                            
-                    print(f'{filePath}:  {hashValue}')
+                    if file_size != 0:
+                        hashValue = pool.apply_async(hasher, ([filePath, alg])).get()
+                        if hashValue != 0 or hashValue != 1:
+                            hashValue = hashValue
+                            file_count += 1
+                            byte_count += file_size                            
+                            print(f'{filePath}:  {hashValue}')
+                        else:
+                            error_count += 1
+                    else:
+                        print(f'{targetName} contains no data and was not hashed')
+                        zero_count += 1
             pool.close()
-            pool.join()
-        print('=' * 15) 
+            pool.join()  
     end_time = time.time()
+    print('=' * 17) 
     print('Hashing Complete')
     print(f'Total Files Hashed: {file_count}')
     print(f'Total Bytes Hashed: {byte_count}')
+    print(f'Total files not-hashed with errors:  {error_count}')
+    print(f'Total files not hashed-contains zero bytes: {zero_count}')
     print(f'Total Time: {end_time - start_time}')
-    print('=' * 15)
+    print('=' * 17)
     print('')
 
 
-#Main program function
-def main():
+#Accepting input from user through command line prompts
+def verbose():
     print('')
-    print("=" * 40)
-    print(f"HashMe-Simple File Hashing version {version}")
-    print("=" * 40)
+    print("=" * 42)
+    print(f"HashMe - Simple File Hasher Version {version}")
+    print("=" * 42)
     while True:
         targetName = input("Enter the single file or directory of files to hash:  ")
         runType = validateTarget(targetName)
@@ -137,28 +167,65 @@ def main():
             print ("Unrecognized hashing algorithm, try again")
             continue
     while True:
-        exportMode = int(input("Enter (1) for text file, (2) for csv file, or (3) for display only:  "))
-        if exportMode > 0 or exportMode <3:
+        try:
+            exportMode = int(input("Enter (1) for text file, (2) for csv file, or (3) for display only:  "))
+        except: 
+            print("Invalid option, try again")
+            continue
+        if exportMode == 1 or exportMode == 2 or exportMode == 3:
             break
         else:
             print("Invalid option, try again")
             continue
     print(runType, targetName, alg, exportMode)
-    #try:
-    startHasher(targetName, exportMode, alg, runType)
-    #except:
-        #print('Unable to start hashing')
-    
+    try:
+        startHasher(targetName, exportMode, alg, runType)
+    except:
+        print('ERROR: Unable to start hasher')
+        sys.exit()
 
-#Main Program
-if __name__ == '__main__':
-    version = .05
-    if len(sys.argv) == 1:
-        main()
-    else:
+#Accepting inputs directly from user through the command line system arguments     
+def arguments():
+    while True:
         targetName = sys.argv[1]
         alg = sys.argv[2]
+        if alg.lower() == 'md5' or alg == 'sha1' or alg == 'sha256':
+            alg = alg.lower()
+        else:
+            print("Invalid hash value argument")
+            verbose()
+            break
         runType = validateTarget(targetName)
-        exportMode = sys.argv[3]
-        startHasher(targetName, exportMode, alg, runType)
+        if runType == False:
+            verbose()
+            break
+        exportMode = int(sys.argv[3])
+        if exportMode != 1 and exportMode != 2 and exportMode != 3:
+            print("Invalid export mode")
+            verbose() 
+            break
+        print("=" * 42)
+        print(f"HashMe-Simple File Hasher Version {version}")
+        print("=" * 42)
+        try:
+            startHasher(targetName, exportMode, alg, runType)
+            break
+        except:
+            print("ERROR: Unable to start hasher")
+            break
+
+#Main program, determines input method.  Defaults to verbose()
+def main():
+    if len(sys.argv) == 1:
+        verbose()
+    elif len(sys.argv) == 4:
+        arguments()
+    else:
+        print("Invalid numer of arguments")
+        verbose()
+    
+#Main Program
+if __name__ == '__main__':
+    version = .99
+    main()
 
